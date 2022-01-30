@@ -5,6 +5,7 @@ const Sublevel = require('level-sublevel');
 const path = require("path");
 const { ToadScheduler, SimpleIntervalJob, AsyncTask } = require('toad-scheduler');
 const { PendingList, ActiveList, CompletedList, FailedList, DelayedList } = require("./QList");
+const { resolve } = require('path');
 
 class QueueDB {
     constructor() {

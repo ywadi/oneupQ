@@ -7,6 +7,7 @@ const level = require('level');
 const Sublevel = require('level-sublevel');
 const path = require("path");
 let fs = require("fs").promises;
+const { runInThisContext } = require("vm");
 //TODO: cant create a q if created before and in db 
 class OneUp {
     constructor() {
@@ -20,6 +21,7 @@ class OneUp {
         //TODO: INIT ALL QUEUES 
         this._dbRootPath = dbRootPath;
         this._consumerQs = level(path.join(this._dbRootPath, "_consumerQs"), { valueEncoding: 'json' });
+        this._topicFilterIndex = level(path.join(this._dbRootPath, "_topicFilter"), { valueEncoding: 'json' });
         this._systemDb = level(path.join(this._dbRootPath, "_systemDb"), { valueEncoding: 'json' });
         this.startDBs();
         return this;
@@ -39,11 +41,13 @@ class OneUp {
             this._consumerQs.put(consumerId, { consumerId, topicFilter })
                 .then(async function () {
                     this.consumersPool[consumerId] = await new QueueDB().init(consumerId, dbRootPath);
+                    await this.createTopicIndex(topicFilter, consumerId);
                     resolve(true);
                 }.bind(this))
         })
 
     }
+
 
     async destroyConsumerQ(consumerId) {
         try {
@@ -51,12 +55,55 @@ class OneUp {
                 fs.rmdir(path.join(this._dbRootPath, consumerId), { recursive: true });
                 await this._consumerQs.del(consumerId);
                 delete this.consumersPool[consumerId];
+                await this.removeConsumerFromTopicIndex(consumerId)
             }
             return true;
         }
         catch (error) {
             return error;
         }
+    }
+
+    async createTopicIndex(topicFilter, consumerId) {
+        console.log(topicFilter)
+        for (let t in topicFilter) {
+            let data;
+            try {
+                console.log("get", topicFilter[t])
+                data = await this._topicFilterIndex.get(topicFilter[t]);
+                data = data;
+                console.log({ data })
+                data.push(consumerId)
+                await this._topicFilterIndex.put(topicFilter[t], data);
+            }
+            catch (err) {
+                console.log(err.message)
+                await this._topicFilterIndex.put(topicFilter[t], [consumerId]);
+            }
+        }
+        return true;
+    }
+
+    async removeConsumerFromTopicIndex(consumerId) {
+        new Promise((resolve, reject) => {
+            this._topicFilterIndex.createReadStream()
+                .on("data", async (data) => {
+                    let key = data.key;
+                    data = data.value;
+                    const index = data.indexOf(consumerId);
+                    if (index !== -1) {
+                        data.splice(index, 1);
+                        console.log(">",data)
+                        await this._topicFilterIndex.put(key, data)
+                    }
+                    if (data.length === 0) {
+                        await this._topicFilterIndex.del(key);
+                    }
+                })
+                .on("end", async () => {
+                    resolve();
+                })
+        })
     }
 
     consumerQsStream(options = {}) {
@@ -111,11 +158,27 @@ class OneUp {
 
     }
 
-    async pushMessageConsumer(consumerId, topic, msg) {
-        msg = new QMsg(topic, msg)
+    async pushMessageConsumer(consumerId, msg, topic=null) {
+        //Here topic = consumer id on the call 
+        if(topic)
+        {msg = new QMsg(topic, msg)}
+        else
+        {msg = new QMsg(consumerId, msg)}
         return await this.consumersPool[consumerId].pushMessge(msg);
     }
-    async pushMessagesTopic(topic = null) { }
+
+    async pushMessageTopic(topic, msg)
+    {
+        let consumers;
+        try{
+            consumers = await this._topicFilterIndex.get(topic);
+            for(let c in consumers){
+                await this.pushMessageConsumer(consumers[c], msg, topic);
+            }
+        }
+        catch(err){console.log(err);return false;}
+        return true;
+    }
 
     async pullMessage(consumerId) {
         return await this.consumersPool[consumerId].pullMessage();
@@ -136,7 +199,7 @@ class OneUp {
         return await this.consumersPool[consumerId].flushAll();
     }
 
-    async deleteFailed(consumerId, qmsgId) { 
+    async deleteFailed(consumerId, qmsgId) {
         return await this.consumersPool[consumerId].deleteFailed(qmsgId);
     }
 
@@ -160,7 +223,7 @@ class OneUp {
         return await this.consumersPool[consumerId].flushFailed();
     }
 
-    async listPaged(consumerId, status, fromKey, limit, reverse=false){
+    async listPaged(consumerId, status, fromKey, limit, reverse = false) {
         console.log(consumerId, status, fromKey, limit, reverse)
         return await this.consumersPool[consumerId].listPaged(status, fromKey, limit, reverse);
     }

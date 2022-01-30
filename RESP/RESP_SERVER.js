@@ -34,7 +34,7 @@ module.exports = async (settings, oneup) => {
         res.send(app.cmds.commandList);
     })
 
-    app.cmd("CONSUMER <subCommand> [consumerId] [topicFilter]", async (req, res) => {
+    app.cmd("CONSUMER <subCommand> [consumerId] [topicFilter...]", async (req, res) => {
         let selectedConsumerId = req.client.getClientVar("consumerId");
         let consumerId = req.params.consumerId;
         if (selectedConsumerId && !req.params.consumerId) {
@@ -117,8 +117,15 @@ module.exports = async (settings, oneup) => {
         }
     })
 
-    app.cmd("PUSH.TOPIC <message> <topic> ", (req, res) => {
-
+    app.cmd("PUSH.TOPIC <message> <topic> ", async (req, res) => {
+        let msg = req.params.message;
+        let topic = req.params.topic;
+        try {
+            msg = JSON.parse(msg);
+        }
+        catch (e) { }
+        await oneup.pushMessageTopic(topic, msg);
+        res.send("OK")
     })
 
     app.cmd("PUSH.CONSUMER <message> [consumerId]", async (req, res) => {
@@ -133,7 +140,7 @@ module.exports = async (settings, oneup) => {
                 msg = JSON.parse(msg);
             }
             catch (e) { }
-            await oneup.pushMessageConsumer(consumerId, consumerId, msg);
+            await oneup.pushMessageConsumer(consumerId, msg);
             res.send("OK")
         }
         else {
@@ -157,24 +164,21 @@ module.exports = async (settings, oneup) => {
         }
     })
 
-    app.cmd("msg.delete [consumerId] <status> <messageKey>",async (req,res)=>{
+    app.cmd("msg.delete [consumerId] <status> <messageKey>", async (req, res) => {
         let selectedConsumerId = req.client.getClientVar("consumerId");
         let consumerId = req.params.consumerId;
         if (selectedConsumerId && !req.params.consumerId) {
             consumerId = selectedConsumerId;
         }
         if (consumerId) {
-            if(req.params.status == "failed")
-            {
-                res.send(await oneup.deleteFailed(consumerId,req.params.messageKey));
+            if (req.params.status == "failed") {
+                res.send(await oneup.deleteFailed(consumerId, req.params.messageKey));
             }
-            else if (req.params.status == "pending")
-            {
-                res.send(await oneup.deletePending(consumerId,req.params.messageKey));
+            else if (req.params.status == "pending") {
+                res.send(await oneup.deletePending(consumerId, req.params.messageKey));
             }
-            else if (req.params.status == "completed")
-            {
-                res.send(await oneup.deleteComplete(consumerId,req.params.messageKey));                
+            else if (req.params.status == "completed") {
+                res.send(await oneup.deleteComplete(consumerId, req.params.messageKey));
             }
             else {
                 res.send(new Error("Status shoul be either failed, pending or complete."))
@@ -243,7 +247,7 @@ module.exports = async (settings, oneup) => {
         res.send(`${selected} has been unselected.`)
     })
 
-    app.cmd("LIST [consumerId] <status> <limit> <fromKey> <reverse>", async (req,res)=>{
+    app.cmd("LIST [consumerId] <status> <limit> <fromKey> <reverse>", async (req, res) => {
         let selectedConsumerId = req.client.getClientVar("consumerId");
         let consumerId = req.params.consumerId;
         if (selectedConsumerId && !req.params.consumerId) {
@@ -251,12 +255,12 @@ module.exports = async (settings, oneup) => {
         }
         if (consumerId) {
             res.send(await oneup.listPaged(
-                consumerId, 
+                consumerId,
                 req.params.status,
-                req.params.fromKey?req.params.fromKey: "00",
+                req.params.fromKey ? req.params.fromKey : "00",
                 req.params.limit ? req.params.limit : -1,
                 req.params.reverse === "true",
-                ));
+            ));
         }
         else {
             res.send(new Error("No consumerId has been provided."))
