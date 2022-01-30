@@ -1,0 +1,10 @@
+- JSONATA stream library
+- UNIT Test 
+- Shard by database use ZeroMQ to send form One Up to the queue dbs 
+- filter stream to have mqtt added to jsonata
+- Test a human case
+- Auth from Settings 
+
+//BUGS
+- some weird behavoir completing message in active when id = 04 ?! 
+- ids need to be always persistent and never go back to zero, they override precense in complete ! 

@@ -1,0 +1,6 @@
+DBSettings:
+  dbLocation: "local"
+  dbRootPath: "../oneupSandbox/qdb.data"
+RESP:
+  port: 9002
+  password: "nestrom"

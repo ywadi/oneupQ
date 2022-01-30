@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "flatten-anything": "^3.0.2",
+    "ioredis": "^4.28.3",
+    "jsonata": "^1.8.5",
+    "level": "^7.0.1",
+    "level-sublevel": "^6.6.5",
+    "lexicographic-integer": "^1.1.0",
+    "lexicographic-integer-encoding": "^1.0.1",
+    "nanoid": "^3.2.0",
+    "redis-parser": "^3.0.0",
+    "redis-proto": "^2.1.0",
+    "respress": "^1.1.2",
+    "toad-scheduler": "^1.6.0",
+    "yaml": "^1.10.2"
+  }
+}
