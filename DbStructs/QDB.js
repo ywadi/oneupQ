@@ -107,6 +107,7 @@ class QueueDB {
     async flushAll() {
         await this.QDB.clear();
         this.events.emit("operation", "flush", {});
+        return true;
     }
 
 
@@ -135,10 +136,45 @@ class QueueDB {
         await this.deq_Active_enq_Delayed(qmsgId);
     }
 
-    //TODO: Implement for user interaction
-    async deleteFailed() {}
-    async clearCompleted() { }
-    async all_Failed_to_Pending() { }
+    async deleteFailed(qmsgId) {
+        return await this.lists.failed.deleteMessage(qmsgId);
+    }
+
+    async deletePending(qmsgId){
+        return await this.lists.pending.deleteMessage(qmsgId);
+    }
+
+    async deleteComplete(qmsgId) {
+        return await this.lists.completed.deleteMessage(qmsgId);
+    }
+
+    async flushCompleted() { 
+        return await this.lists.completed.flush();
+    }
+
+    async reQallFailed() { 
+        
+    }
+
+    async flushFailed() { 
+        return await this.lists.failed.flush();
+    }
+
+    //TODO: offset and limit
+    listPaged(status, fromKey, limit, reverse)
+    {
+        let list = [];
+        return new Promise((resolve,reject)=>{
+            this.lists[status]._createReadStream({reverse, limit, gt:fromKey})
+            .on("data",(data)=>{
+                list.push(data);
+            })
+            .on("end",()=>{
+                resolve(list);
+            })
+        })
+        
+    }
 
     //client driven as push
     async enq_ToPending(qmsg) {

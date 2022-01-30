@@ -5,7 +5,6 @@ const OneUp = require("./OneUpStructs/OneUp");
 const homedir = require('os').homedir();
 const configPath = path.join(homedir,"oneup","configs");
 const settingsPath = path.join(configPath,"settings.oneup");
-const CMDS = require("./OneUpStructs/CMDs");
 fs.mkdirSync(configPath, { recursive: true });
 
 let settingsYaml;
@@ -33,12 +32,6 @@ fs.mkdirSync(_settings.DBSettings.dbRootPath, { recursive: true });
 async function main(settings){
     let oneUp = OneUp;
     await oneUp.init(settings.DBSettings.dbRootPath);
-    let cmds = new CMDS();
-
-    cmds.registerCMD("LIST",oneUp.listQs.bind(oneUp));
-    cmds.registerCMD("CREATE",oneUp.createConsumerQ.bind(oneUp));
-    cmds.registerCMD("EXISTS",oneUp.qExists.bind(oneUp));
-    cmds.registerCMD("DEL",oneUp.destroyConsumerQ.bind(oneUp));
 
     //TODO: Create different interface capabilities "Plugins"
     let respServer = require("./RESP/RESP_SERVER")(settings.RESP, oneUp);

@@ -17,8 +17,16 @@ class QueueList {
         return this;
     }
 
-    async flush() {
-        this.SubQDB.clear();
+    flush() {
+        return new Promise((resolve,reject)=>{
+            this._createReadStream({})
+            .on("data", async (data) => {
+                await this.SubQDB.del(data.key);
+            })
+            .on("end", () => { 
+                resolve(true)
+             });
+        })
     }
 
     stream_Filter(expression) {
@@ -59,6 +67,16 @@ class QueueList {
 
         });
 
+    }
+
+    deleteMessage(qmsgId){
+        return new Promise((resolve,reject)=>{
+            this.SubQDB.del(qmsgId,(err)=>{
+                if(err){reject(err)}
+                else
+                {resolve(true)}
+            })
+        })
     }
 
     getNewId() {

@@ -27,6 +27,9 @@ module.exports = async (settings, oneup) => {
         setInterval(() => { res.send("OK") }, 500);
     });
 
+    //TODO:
+    app.cmd("unsubscribe", (req, res) => { })
+
     app.cmd("COMMAND", (req, res) => {
         res.send(app.cmds.commandList);
     })
@@ -84,100 +87,142 @@ module.exports = async (settings, oneup) => {
                     res.send(new Error("Stats expects a consumerId"))
                 }
                 break;
+            case "flush.all":
+                if (consumerId) {
+                    res.send(await oneup.flushAll(consumerId));
+                }
+                else {
+                    res.send(new Error("No consumerId has been provided."))
+                }
+                break;
+            case "flush.failed":
+                if (consumerId) {
+                    res.send(await oneup.flushFailed(consumerId));
+                }
+                else {
+                    res.send(new Error("No consumerId has been provided."))
+                }
+                break;
+            case "flush.completed":
+                if (consumerId) {
+                    res.send(await oneup.flushCompleted(consumerId));
+                }
+                else {
+                    res.send(new Error("No consumerId has been provided."))
+                }
+                break;
             default:
                 res.send(new Error(`Incorrect Subcommand ${cmd}`))
                 break;
         }
     })
 
-    app.cmd("PUSH.TOPIC <message> <topic> ",(req,res)=>{
+    app.cmd("PUSH.TOPIC <message> <topic> ", (req, res) => {
 
     })
 
-    app.cmd("PUSH.CONSUMER <message> [consumerId]",async (req,res)=>{
+    app.cmd("PUSH.CONSUMER <message> [consumerId]", async (req, res) => {
         let selectedConsumerId = req.client.getClientVar("consumerId");
         let consumerId = req.params.consumerId;
         if (selectedConsumerId && !req.params.consumerId) {
             consumerId = selectedConsumerId;
         }
-        if(consumerId)
-        {
+        if (consumerId) {
             let msg = req.params.message;
-            try{
+            try {
                 msg = JSON.parse(msg);
             }
-            catch(e){}
+            catch (e) { }
             await oneup.pushMessageConsumer(consumerId, consumerId, msg);
             res.send("OK")
         }
-        else
-        {
+        else {
             res.send(new Error("No consumerId has been provided."))
         }
-        
+
     })
 
-    app.cmd("PULL.MESSAGE [consumerId]",async (req,res)=>{
+    app.cmd("PULL.MESSAGE [consumerId]", async (req, res) => {
         let selectedConsumerId = req.client.getClientVar("consumerId");
         let consumerId = req.params.consumerId;
         if (selectedConsumerId && !req.params.consumerId) {
             consumerId = selectedConsumerId;
         }
-        if(consumerId)
-        {
+        if (consumerId) {
             console.log(oneup)
             res.send(await oneup.pullMessage(consumerId));
         }
-        else
-        {
+        else {
             res.send(new Error("No consumerId has been provided."))
         }
     })
 
-    app.cmd("MSG.COMPLETE [consumerId] <messageKey>", async (req,res)=>{
+    app.cmd("msg.delete [consumerId] <status> <messageKey>",async (req,res)=>{
         let selectedConsumerId = req.client.getClientVar("consumerId");
         let consumerId = req.params.consumerId;
         if (selectedConsumerId && !req.params.consumerId) {
             consumerId = selectedConsumerId;
         }
-        if(consumerId)
-        {
-            res.send(await oneup.markComplete(consumerId, req.params.messageKey) );
+        if (consumerId) {
+            if(req.params.status == "failed")
+            {
+                res.send(await oneup.deleteFailed(consumerId,req.params.messageKey));
+            }
+            else if (req.params.status == "pending")
+            {
+                res.send(await oneup.deletePending(consumerId,req.params.messageKey));
+            }
+            else if (req.params.status == "completed")
+            {
+                res.send(await oneup.deleteComplete(consumerId,req.params.messageKey));                
+            }
+            else {
+                res.send(new Error("Status shoul be either failed, pending or complete."))
+            }
         }
-        else
-        {
+        else {
             res.send(new Error("No consumerId has been provided."))
         }
     })
 
-    app.cmd("MSG.FAIL [consumerId] <messageKey>", async (req,res)=>{
+    app.cmd("MSG.COMPLETE [consumerId] <messageKey>", async (req, res) => {
         let selectedConsumerId = req.client.getClientVar("consumerId");
         let consumerId = req.params.consumerId;
         if (selectedConsumerId && !req.params.consumerId) {
             consumerId = selectedConsumerId;
         }
-        if(consumerId)
-        {
-            res.send(await oneup.markFailed(consumerId, req.params.messageKey) );
+        if (consumerId) {
+            res.send(await oneup.markComplete(consumerId, req.params.messageKey));
         }
-        else
-        {
+        else {
             res.send(new Error("No consumerId has been provided."))
         }
     })
 
-    app.cmd("MSG.RETRY [consumerId] <messageKey>", async (req,res)=>{
+    app.cmd("MSG.FAIL [consumerId] <messageKey>", async (req, res) => {
         let selectedConsumerId = req.client.getClientVar("consumerId");
         let consumerId = req.params.consumerId;
         if (selectedConsumerId && !req.params.consumerId) {
             consumerId = selectedConsumerId;
         }
-        if(consumerId)
-        {
-            res.send(await oneup.retryFailed(consumerId, req.params.messageKey) );
+        if (consumerId) {
+            res.send(await oneup.markFailed(consumerId, req.params.messageKey));
         }
-        else
-        {
+        else {
+            res.send(new Error("No consumerId has been provided."))
+        }
+    })
+
+    app.cmd("MSG.RETRY [consumerId] <messageKey>", async (req, res) => {
+        let selectedConsumerId = req.client.getClientVar("consumerId");
+        let consumerId = req.params.consumerId;
+        if (selectedConsumerId && !req.params.consumerId) {
+            consumerId = selectedConsumerId;
+        }
+        if (consumerId) {
+            res.send(await oneup.retryFailed(consumerId, req.params.messageKey));
+        }
+        else {
             res.send(new Error("No consumerId has been provided."))
         }
     })
@@ -196,6 +241,26 @@ module.exports = async (settings, oneup) => {
         let selected = req.client.getClientVar("consumerId")
         req.client.delClientVar("consumerId")
         res.send(`${selected} has been unselected.`)
+    })
+
+    app.cmd("LIST [consumerId] <status> <limit> <fromKey> <reverse>", async (req,res)=>{
+        let selectedConsumerId = req.client.getClientVar("consumerId");
+        let consumerId = req.params.consumerId;
+        if (selectedConsumerId && !req.params.consumerId) {
+            consumerId = selectedConsumerId;
+        }
+        if (consumerId) {
+            res.send(await oneup.listPaged(
+                consumerId, 
+                req.params.status,
+                req.params.fromKey?req.params.fromKey: "00",
+                req.params.limit ? req.params.limit : -1,
+                req.params.reverse === "true",
+                ));
+        }
+        else {
+            res.send(new Error("No consumerId has been provided."))
+        }
     })
 }
 

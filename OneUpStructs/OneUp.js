@@ -25,17 +25,16 @@ class OneUp {
         return this;
     }
 
-    async startDBs(){
+    async startDBs() {
         let qs = await this.listQs();
-        for(let x in qs)
-        {
-            console.log("*",qs[x])
-            this.consumersPool[qs[x]] = await new QueueDB().init(qs[x], this._dbRootPath);            
+        for (let x in qs) {
+            console.log("*", qs[x])
+            this.consumersPool[qs[x]] = await new QueueDB().init(qs[x], this._dbRootPath);
         }
     }
 
     createConsumerQ(consumerId, topicFilter) {
-        return new Promise((resolve,reject)=>{
+        return new Promise((resolve, reject) => {
             let dbRootPath = this._dbRootPath;
             this._consumerQs.put(consumerId, { consumerId, topicFilter })
                 .then(async function () {
@@ -43,27 +42,24 @@ class OneUp {
                     resolve(true);
                 }.bind(this))
         })
-        
+
     }
 
     async destroyConsumerQ(consumerId) {
-        try
-        {
-            if(this.consumersPool.hasOwnProperty(consumerId)) 
-            {
-                fs.rmdir(path.join(this._dbRootPath,consumerId),{recursive:true});
+        try {
+            if (this.consumersPool.hasOwnProperty(consumerId)) {
+                fs.rmdir(path.join(this._dbRootPath, consumerId), { recursive: true });
                 await this._consumerQs.del(consumerId);
                 delete this.consumersPool[consumerId];
             }
             return true;
         }
-        catch(error)
-        {
+        catch (error) {
             return error;
         }
     }
 
-    consumerQsStream(options={}) {
+    consumerQsStream(options = {}) {
         return this._consumerQs.createReadStream(options);
     }
 
@@ -82,10 +78,10 @@ class OneUp {
     }
 
     //Q Methods
-    listQs(){
+    listQs() {
         return new Promise((resolve, reject) => {
             let qs = [];
-            this.consumerQsStream({values:false})
+            this.consumerQsStream({ values: false })
                 .on("data", data => {
                     qs.push(data);
                 })
@@ -95,55 +91,79 @@ class OneUp {
         });
     }
 
-    async qExists(consumerId){
-        try{
+    async qExists(consumerId) {
+        try {
             return await this._consumerQs.get(consumerId);
         }
-        catch(error)
-        {
+        catch (error) {
             return false;
         }
-        
+
     }
 
-    async getQStats(consumerId){
-        if(await this.qExists(consumerId))
-        {
+    async getQStats(consumerId) {
+        if (await this.qExists(consumerId)) {
             return await this.consumersPool[consumerId].getMsgCountInLists();
         }
-        else
-        {
+        else {
             return false;
         }
-        
+
     }
 
-    async pushMessageConsumer(consumerId,topic,msg){
+    async pushMessageConsumer(consumerId, topic, msg) {
         msg = new QMsg(topic, msg)
         return await this.consumersPool[consumerId].pushMessge(msg);
     }
-    async pushMessagesTopic(topic=null){}
+    async pushMessagesTopic(topic = null) { }
 
-    async pullMessage(consumerId){
+    async pullMessage(consumerId) {
         return await this.consumersPool[consumerId].pullMessage();
     }
-    async markComplete(consumerId,qmsgId){
+    async markComplete(consumerId, qmsgId) {
         return await this.consumersPool[consumerId].msgComplete(qmsgId);
     }
 
-    async markFailed(consumerId, qmsgId){
+    async markFailed(consumerId, qmsgId) {
         return await this.consumersPool[consumerId].msgFail(qmsgId);
     }
 
-    async retryFailed(consumerId, qmsgId){
+    async retryFailed(consumerId, qmsgId) {
         return await this.consumersPool[consumerId].retryFailed(qmsgId);
     }
 
-    async deleteFailed(consumerId, qmsgId){}
+    async flushAll(consumerId) {
+        return await this.consumersPool[consumerId].flushAll();
+    }
 
-    async flushQ(consumerId){}
-    async clearCompleted(){}
-    async flushFailed(){}
+    async deleteFailed(consumerId, qmsgId) { 
+        return await this.consumersPool[consumerId].deleteFailed(qmsgId);
+    }
+
+    async deletePending(consumerId, qmsgId) {
+        return await this.consumersPool[consumerId].deletePending(qmsgId);
+    }
+
+    async deleteComplete(consumerId, qmsgId) {
+        return await this.consumersPool[consumerId].deleteComplete(qmsgId);
+    }
+
+    async flushCompleted(consumerId) {
+        return await this.consumersPool[consumerId].flushCompleted();
+    }
+
+    async reQallFailed(consumerId) {
+        return await this.consumersPool[consumerId].reQallFailed();
+    }
+
+    async flushFailed(consumerId) {
+        return await this.consumersPool[consumerId].flushFailed();
+    }
+
+    async listPaged(consumerId, status, fromKey, limit, reverse=false){
+        console.log(consumerId, status, fromKey, limit, reverse)
+        return await this.consumersPool[consumerId].listPaged(status, fromKey, limit, reverse);
+    }
 }
 
 module.exports = new OneUp();
